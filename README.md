@@ -1,6 +1,6 @@
 # ⭐ Capture the Star
 
-**Capture the Star** is a fun, interactive game where players use **eye tracking and head movement** to control gameplay — no keyboard or mouse needed! Built using the [MediaPipe](https://github.com/google/mediapipe) library, this game offers an accessible and futuristic way to play.
+**Capture the Star** is a fun, browser-based game where players use **eye tracking and head movement** to control gameplay — no keyboard or mouse needed! Built entirely using **HTML, CSS, and JavaScript**, the game uses [MediaPipe](https://github.com/google/mediapipe) to deliver a futuristic, hands-free experience.
 
 ---
 
@@ -14,58 +14,48 @@
 
 ## 🧠 Tech Stack
 
-* **Python**
+* **HTML**, **CSS**, **JavaScript**
 * **MediaPipe** for face and eye tracking
-* **OpenCV** for rendering visuals
-* **NumPy**, and other standard libraries
+* **Canvas API** for game rendering
+* **Webcam access** via browser APIs
 
 ---
 
 ## 🚀 How to Run
 
-1. Clone the repository:
+1. Clone or download the repository:
 
    ```bash
    git clone https://github.com/ronthomasroy/Capture-the-Star.git
    cd Capture-the-Star
    ```
 
-2. Install dependencies (preferably in a virtual environment):
+2. Open `index.html` in any modern browser (Chrome recommended).
 
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-3. Run the game:
-
-   ```bash
-   python main.py
-   ```
-
-> Make sure your webcam is enabled. Lighting and a clean background help improve tracking accuracy.
+> Make sure to allow webcam access when prompted by the browser. Good lighting and a clear background will improve tracking accuracy.
 
 ---
 
-## 🧹 Features
+## 🧩 Features
 
-* Hands-free control using eye and head tracking
+* Completely hands-free gameplay using head and eye movement
 * Real-time feedback and scoring
-* Engaging and accessible gameplay
-* Minimalistic interface for focus-based interaction
+* No installation required — just open in browser
+* Designed for accessibility and innovation in game interaction
 
 ---
 
 ## 📸 Demo
 
-*(Add a GIF or screenshot here of someone playing the game!)*
+<img width="808" height="581" alt="image" src="https://github.com/user-attachments/assets/fa1cd353-4249-481d-861c-fbcb60f7cf7c" />
+
 
 ---
 
 ## 📚 Acknowledgements
 
 * [Google MediaPipe](https://github.com/google/mediapipe)
-* [OpenCV](https://opencv.org/)
-* Inspired by human-computer interaction research and accessible gaming concepts
+* Inspired by accessibility-first design and gesture-based interfaces
 
 ---
 
