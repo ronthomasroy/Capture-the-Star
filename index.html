@@ -1,0 +1,522 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eye-Tracking Coin Capture Game</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .game-container {
+            position: relative;
+            width: 800px;
+            height: 500px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 15px;
+            border: 3px solid #fff;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+        
+        .game-item {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            animation: pulse 0.5s ease-in-out infinite alternate;
+            background-size: cover;
+            background-position: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        
+        @keyframes pulse {
+            from { transform: scale(1); }
+            to { transform: scale(1.05); }
+        }
+        
+        .coin {
+            background-image: url('coin.png');
+            border: 2px solid #ffd700;
+        }
+        
+        .bomb {
+            background-image: url('bomb.png');
+            border: 2px solid #ff4444;
+        }
+        
+        .hud {
+            display: flex;
+            justify-content: space-between;
+            width: 800px;
+            margin-bottom: 10px;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .score {
+            color: #ffd700;
+        }
+        
+        .timer {
+            color: #ff6b6b;
+        }
+        
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .btn {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            color: white;
+            padding: 15px 30px;
+            font-size: 18px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 0 10px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .status {
+            margin: 20px 0;
+            font-size: 18px;
+            text-align: center;
+            min-height: 25px;
+        }
+        
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            font-size: 24px;
+        }
+        
+        .instructions {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            max-width: 800px;
+        }
+        
+        .instructions h3 {
+            margin-top: 0;
+            color: #ffd700;
+        }
+        
+        .gaze-indicator {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 3px solid rgba(255, 64, 64, 0.8);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 1000;
+            transition: all 0.1s ease;
+            backdrop-filter: blur(1px);
+        }
+        
+        video {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 160px;
+            height: 120px;
+            border: 2px solid #fff;
+            border-radius: 8px;
+            background: #000;
+            transform: scaleX(-1);
+        }
+    </style>
+</head>
+<body>
+    <h1>🎯 Eye-Tracker Game</h1>
+    <h2><strong>Capture the Coin</strong></h2>
+    
+    <div class="instructions">
+        <h3>How to Play:</h3>
+        <p>📹 <strong>Look at the golden coins</strong> and <strong>close both eyes</strong> to capture them (+1 point)</p>
+        <p>🤸 May have to tilt head for better accuracy</p>
+        <p>💣 Avoid bombs (-1 point if you capture them)</p>
+        <p>⏰ You have 30 seconds to score as high as possible!</p>
+        
+    </div>
+    
+    <div class="status" id="status">Click "Start Game" and allow camera access to begin!</div>
+    
+    <div class="hud">
+        <div class="score">Score: <span id="score">0</span></div>
+        <div class="timer">Time: <span id="timer">20</span>s</div>
+    </div>
+    
+    <div class="game-container" id="gameContainer">
+        <video id="bgVideo" autoplay loop muted playsinline style="position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;z-index:0;"></video>
+        <video id="video" autoplay muted playsinline></video>
+        <div class="gaze-indicator" id="gazeIndicator"></div>
+    </div>
+    
+    <div class="controls">
+        <button class="btn" id="startBtn" onclick="startGame()">Start Game</button>
+        <button class="btn" id="calibrateBtn" onclick="calibrateGaze()" disabled>Calibrate Gaze</button>
+    </div>
+
+    <script>
+        // Game state
+        let gameState = {
+            score: 0,
+            timeLeft: 30,
+            isPlaying: false,
+            items: [],
+            eyesClosed: false,
+            gazeX: 0,
+            gazeY: 0,
+            calibrated: false
+        };
+
+        // MediaPipe setup
+        let faceMesh;
+        let videoElement;
+        let gazeIndicator;
+
+        // Initialize the game
+        function initGame() {
+            videoElement = document.getElementById('video');
+            gazeIndicator = document.getElementById('gazeIndicator');
+            
+            // Initialize MediaPipe Face Mesh
+            faceMesh = new FaceMesh({
+                locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+            });
+            
+            faceMesh.setOptions({
+                maxNumFaces: 1,
+                refineLandmarks: true,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+            
+            faceMesh.onResults(onResults);
+            // Set up background video
+            const bgVideo = document.getElementById('bgVideo');
+            bgVideo.src = 'bgplayer.mp4';
+            bgVideo.load();
+        }
+
+        // Handle MediaPipe results
+        function onResults(results) {
+            if (results.multiFaceLandmarks && results.multiFaceLandmarks[0]) {
+                const landmarks = results.multiFaceLandmarks[0];
+                
+                // Use iris center for more sensitive gaze tracking
+                const leftIris = landmarks[473];
+                const rightIris = landmarks[468];
+                const gameContainer = document.getElementById('gameContainer');
+                const rect = gameContainer.getBoundingClientRect();
+                // Sensitivity amplification
+                const SENSITIVITY = 2;
+                const avgIrisX = (leftIris.x + rightIris.x) / 2;
+                const avgIrisY = (leftIris.y + rightIris.y) / 2;
+                let offsetX = (avgIrisX - 0.5) * SENSITIVITY;
+                let offsetY = (avgIrisY - 0.5) * SENSITIVITY;
+                offsetX = Math.max(-0.5, Math.min(0.5, offsetX));
+                offsetY = Math.max(-0.5, Math.min(0.5, offsetY));
+                const mappedX = 0.5 + offsetX;
+                const mappedY = 0.5 + offsetY;
+                // Mirror X to match video flip
+                gameState.gazeX = rect.width - (mappedX * rect.width);
+                gameState.gazeY = mappedY * rect.height;
+                // Update gaze indicator
+                gazeIndicator.style.left = gameState.gazeX + 'px';
+                gazeIndicator.style.top = gameState.gazeY + 'px';
+                // Eye closure detection
+                const leftEyeUpper = landmarks[159];
+                const leftEyeLower = landmarks[145];
+                const rightEyeUpper = landmarks[386];
+                const rightEyeLower = landmarks[374];
+                const leftEyeHeight = Math.abs(leftEyeUpper.y - leftEyeLower.y);
+                const rightEyeHeight = Math.abs(rightEyeUpper.y - rightEyeLower.y);
+                const eyeClosureThreshold = 0.03;
+                gameState.eyesClosed = leftEyeHeight < eyeClosureThreshold && rightEyeHeight < eyeClosureThreshold;
+                // Check for captures if game is playing
+                if (gameState.isPlaying && gameState.eyesClosed) {
+                    checkCapture();
+                } else if (!gameState.eyesClosed) {
+                    lastEyesClosed = false; // Reset debounce when eyes open
+                }
+            }
+        }
+
+        // Start camera
+        async function startCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { width: 640, height: 480 } 
+                });
+                videoElement.srcObject = stream;
+                
+                videoElement.onloadedmetadata = () => {
+                    const camera = new Camera(videoElement, {
+                        onFrame: async () => {
+                            await faceMesh.send({ image: videoElement });
+                        },
+                        width: 640,
+                        height: 480
+                    });
+                    camera.start();
+                    // Enable calibrate button here
+                    document.getElementById('calibrateBtn').disabled = false;
+                };
+                
+                document.getElementById('status').textContent = "Camera ready! Click Start Game to begin.";
+                document.getElementById('startBtn').disabled = false;
+                
+            } catch (error) {
+                document.getElementById('status').textContent = "Camera access required to play. Please allow camera permissions.";
+            }
+        }
+
+        // Start the game
+        function startGame() {
+            if (!gameState.calibrated) {
+                document.getElementById('status').textContent = "Please calibrate your gaze first!";
+                return;
+            }
+            
+            gameState = {
+                score: 0,
+                timeLeft: 30,
+                isPlaying: true,
+                items: [],
+                eyesClosed: false,
+                gazeX: gameState.gazeX,
+                gazeY: gameState.gazeY,
+                calibrated: true
+            };
+            
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('calibrateBtn').disabled = true;
+            updateUI();
+            spawnItems();
+            startTimer();
+        }
+
+        // Calibrate gaze (simplified - just marks as calibrated)
+        function calibrateGaze() {
+            gameState.calibrated = true;
+            document.getElementById('status').textContent = "Gaze calibrated! You're ready to play.";
+            document.getElementById('startBtn').disabled = false;
+        }
+
+        // Spawn game items
+        function spawnItems() {
+            if (!gameState.isPlaying) return;
+            
+            // Clear existing items
+            gameState.items.forEach(item => {
+                if (item.element && item.element.parentNode) {
+                    item.element.parentNode.removeChild(item.element);
+                }
+            });
+            gameState.items = [];
+            
+            const gameContainer = document.getElementById('gameContainer');
+            
+            // Spawn 1 coin and 4 bombs
+            for (let i = 0; i < 5; i++) {
+                const isCoin = i === 0;
+                const item = createGameItem(isCoin);
+                gameState.items.push(item);
+                gameContainer.appendChild(item.element);
+            }
+            
+            // Schedule next spawn
+            setTimeout(() => {
+                spawnItems();
+            }, 4000);
+        }
+
+        // Create a game item
+        function createGameItem(isCoin) {
+            const element = document.createElement('div');
+            element.className = 'game-item ' + (isCoin ? 'coin' : 'bomb');
+            const gameContainer = document.getElementById('gameContainer');
+            const maxX = gameContainer.offsetWidth - 60;
+            const maxY = gameContainer.offsetHeight - 60;
+            let x, y, valid = false, attempts = 0;
+            // Ensure items are at least 100px apart
+            while (!valid && attempts < 50) {
+                x = Math.random() * maxX;
+                y = Math.random() * maxY;
+                valid = true;
+                for (const other of gameState.items) {
+                    const dist = Math.sqrt(Math.pow(x - other.x, 2) + Math.pow(y - other.y, 2));
+                    if (dist < 100) {
+                        valid = false;
+                        break;
+                    }
+                }
+                attempts++;
+            }
+            element.style.left = x + 'px';
+            element.style.top = y + 'px';
+            const item = {
+                element: element,
+                isCoin: isCoin,
+                x: x,
+                y: y,
+                captured: false
+            };
+            // Auto-remove after 4 seconds
+            setTimeout(() => {
+                if (element.parentNode && !item.captured) {
+                    element.parentNode.removeChild(element);
+                }
+            }, 4000);
+            return item;
+        }
+
+        // Debounce to only allow one capture per mouth open event
+        let lastEyesClosed = false;
+        function checkCapture() {
+            if (lastEyesClosed) return; // Only allow one capture per closure event
+            let capturedAny = false;
+            gameState.items.forEach(item => {
+                if (item.captured) return;
+                // Increase capture radius to match larger indicator (60px radius)
+                const distance = Math.sqrt(
+                    Math.pow(gameState.gazeX - (item.x + 30), 2) + 
+                    Math.pow(gameState.gazeY - (item.y + 30), 2)
+                );
+                if (distance < 60) { // Increased capture radius
+                    item.captured = true;
+                    capturedAny = true;
+                    if (item.isCoin) {
+                        gameState.score++;
+                        item.element.style.background = 'radial-gradient(circle, #00ff00, #008800)';
+                    } else {
+                        gameState.score--;
+                        item.element.style.background = 'radial-gradient(circle, #ff0000, #880000)';
+                    }
+                    setTimeout(() => {
+                        if (item.element.parentNode) {
+                            item.element.parentNode.removeChild(item.element);
+                        }
+                    }, 200);
+                    updateUI();
+                }
+            });
+            if (capturedAny) lastEyesClosed = true;
+        }
+
+        // Start game timer
+        function startTimer() {
+            const timer = setInterval(() => {
+                gameState.timeLeft--;
+                updateUI();
+                
+                if (gameState.timeLeft <= 0) {
+                    clearInterval(timer);
+                    endGame();
+                }
+            }, 1000);
+        }
+
+        // End the game
+        function endGame() {
+            gameState.isPlaying = false;
+            
+            // Clear items
+            gameState.items.forEach(item => {
+                if (item.element && item.element.parentNode) {
+                    item.element.parentNode.removeChild(item.element);
+                }
+            });
+            
+            // Show game over screen
+            const gameContainer = document.getElementById('gameContainer');
+            const gameOver = document.createElement('div');
+            gameOver.className = 'game-over';
+            gameOver.innerHTML = `
+                <h2>Game Over!</h2>
+                <p>Final Score: ${gameState.score}</p>
+                <button class="btn" onclick="resetGame()">Play Again</button>
+            `;
+            gameContainer.appendChild(gameOver);
+        }
+
+        // Reset the game
+        function resetGame() {
+            const gameOver = document.querySelector('.game-over');
+            if (gameOver) gameOver.remove();
+            
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('calibrateBtn').disabled = false;
+            document.getElementById('status').textContent = "Ready to play again!";
+        }
+
+        // Update UI
+        function updateUI() {
+            document.getElementById('score').textContent = gameState.score;
+            document.getElementById('timer').textContent = gameState.timeLeft;
+        }
+
+        // Initialize when page loads
+        window.onload = () => {
+            initGame();
+            startCamera();
+        };
+
+        // Camera class (simplified MediaPipe camera)
+        class Camera {
+            constructor(videoElement, options) {
+                this.videoElement = videoElement;
+                this.onFrame = options.onFrame;
+            }
+            
+            start() {
+                const tick = async () => {
+                    if (this.videoElement.readyState >= 2) {
+                        await this.onFrame();
+                    }
+                    requestAnimationFrame(tick);
+                };
+                tick();
+            }
+        }
+    </script>
+</body>
+</html>
